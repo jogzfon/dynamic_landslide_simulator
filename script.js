@@ -573,6 +573,9 @@ function resetSim() {
     // Generate new terrain
     generateTerrain();
 
+    // Force vegetation regeneration immediately
+    populateVegetationAndParticles();
+
     // Force recalculation of everything
     const fos = computeFoS();
     const cov = parseFloat(document.getElementById("fosSigma").value);
@@ -590,8 +593,7 @@ function resetSim() {
     updateRisk();
     drawTrendChart();
 }
-
-// Generate Terrain
+// Generate Terrain - ENHANCED VERSION
 function generateTerrain() {
     currentSeed = Date.now();
     rng = new Random(currentSeed);
@@ -613,12 +615,19 @@ function generateTerrain() {
     const env = getEnv();
     const slopeRad = env.slopeAngle * Math.PI / 180;
 
+    // Initialize terrain with at least 2 points
     for (let i = 0; i < points; i++) {
         const x = i / (points - 1) * canvas.width;
         const n = i / (points - 1);
         let y = 0.82 * canvas.height - n * canvas.width * Math.tan(slopeRad) - 180 * Math.pow(n - 0.5, 2) + 30 * (rng.next() - 0.5);
         y = Math.max(70, Math.min(canvas.height - 70, y));
         terrain.push({ x: x, y: y, displaced: 0 });
+    }
+
+    // Ensure we have valid terrain data
+    if (terrain.length < 2) {
+        console.error("Terrain generation failed - insufficient points");
+        return;
     }
 
     // Smooth terrain
@@ -641,14 +650,22 @@ function generateTerrain() {
     draw();
 }
 
-// Populate Vegetation and Particles
+// Populate Vegetation and Particles - FIXED VERSION
 function populateVegetationAndParticles() {
     const env = getEnv();
     particles = [];
     trees = [];
 
+    // Check if terrain has enough points
+    if (terrain.length < 2) return;
+
     for (let i = 0; i < terrain.length - 1; i++) {
-        const a = terrain[i], b = terrain[i + 1];
+        const a = terrain[i];
+        const b = terrain[i + 1];
+        
+        // Additional safety check
+        if (!a || !b) continue;
+        
         const segLen = Math.hypot(b.x - a.x, b.y - a.y);
         const cells = Math.ceil(segLen / 3.5);
 
@@ -675,8 +692,12 @@ function populateVegetationAndParticles() {
 
     const baseTreeCount = Math.floor(5 + env.vegetation * 45);
     for (let t = 0; t < baseTreeCount; t++) {
-        const idx = Math.floor(rng.next() * (terrain.length - 2));
+        // Ensure we don't try to access terrain beyond its bounds
+        const idx = Math.floor(rng.next() * Math.max(1, terrain.length - 2));
         const base = terrain[idx];
+        
+        if (!base) continue;
+        
         trees.push({
             x: base.x,
             y: base.y,
