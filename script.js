@@ -511,6 +511,11 @@ function toggleRain() {
     if (!animating) requestAnimationFrame(animate);
 }
 
+function toggleEducational() {
+    const panel = document.getElementById("educationalPanel");
+    panel.classList.toggle("open");
+}
+
 // Reset Simulation
 function resetSim() {
     animating = false;
@@ -525,7 +530,65 @@ function resetSim() {
     btn.style.background = "linear-gradient(135deg,#0ea5e9,#06b6d4)";
     document.getElementById("rainStatus").style.display = 'none';
 
+    // Reset to optimal default values
+    document.getElementById("vegetation").value = 50;
+    document.getElementById("vegVal").textContent = "50%";
+    
+    document.getElementById("erosion").value = 20;
+    document.getElementById("erosionVal").textContent = "20%";
+    
+    document.getElementById("soilMoisture").value = 30;
+    document.getElementById("moistureVal").textContent = "30%";
+    
+    document.getElementById("rainIntensity").value = 10;
+    document.getElementById("rainVal").textContent = "10 mm/hr";
+    
+    document.getElementById("fosSigma").value = 0.15;
+    document.getElementById("covVal").textContent = "15%";
+
+    // Reset geotechnical parameters to defaults
+    document.getElementById("soilDepth").value = 3.0;
+    document.getElementById("unitWeight").value = 19.0;
+    document.getElementById("cohesionGeo").value = 15;
+    document.getElementById("phiGeo").value = 32;
+    document.getElementById("slopeAngle").value = 30;
+    document.getElementById("hydCond").value = 5.0;
+
+    // Clear history arrays
+    fosHistory = [];
+    pofHistory = [];
+    ruHistory = [];
+
+    // Reset time display
+    document.getElementById('timeDisplay').textContent = `Elapsed: 0.0 min | Rain: 0.0 mm`;
+    
+    // Reset rain status displays
+    document.getElementById('rainTime').textContent = '0.0';
+    document.getElementById('infiltStatus').textContent = '—';
+    document.getElementById('ruRate').textContent = '—';
+    
+    // Reset fallen particles count
+    document.getElementById("fallenCount").textContent = "0";
+
+    // Generate new terrain
     generateTerrain();
+
+    // Force recalculation of everything
+    const fos = computeFoS();
+    const cov = parseFloat(document.getElementById("fosSigma").value);
+    const pof = computePoF(fos, cov);
+    const ru = computeRU();
+    const ceff = computeEffCohesion();
+
+    // Update displays
+    document.getElementById("fosValue").textContent = fos.toFixed(3);
+    document.getElementById("pofValue").textContent = (100 * pof).toFixed(2) + "%";
+    document.getElementById("ruValue").textContent = ru.toFixed(3);
+    document.getElementById("ceffValue").textContent = ceff.toFixed(1) + " kPa";
+
+    // Update status & colors
+    updateRisk();
+    drawTrendChart();
 }
 
 // Generate Terrain

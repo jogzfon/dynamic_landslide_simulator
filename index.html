@@ -16,7 +16,6 @@
         <div class="controls">
             <div class="control-group">
                 <h3>🌿 Environmental Factors</h3>
-                
                 <label class="block">Vegetation Cover (%)</label>
                 <div class="slider-container">
                     <input id="vegetation" type="range" min="0" max="100" step="5" value="50"/>
@@ -95,6 +94,7 @@
                 </div>
             </div>
 
+            <button class="educational-toggle" onclick="toggleEducational()">🎓 STUDENT GUIDE</button>  
             <div class="control-group">
                 <h3>🎮 Simulation Controls</h3>
                 <button id="rainBtn" class="btn-rain">🌧️ Start Rain</button>
@@ -205,7 +205,126 @@
         </div>
     </div>
 </div>
+<!-- Educational Guide Panel -->
+<div class="educational-panel" id="educationalPanel">
+    <div class="educational-header">
+        <span>📖 How This Simulation Works</span>
+        <button onclick="toggleEducational()" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;padding:0 5px">×</button>
+    </div>
+    <div class="educational-content" id="educationalContent">
+        <div class="edu-section">
+            <h4>🎯 What is This Simulator?</h4>
+            <p>This tool helps you understand <strong>landslides</strong> - when soil on a slope becomes unstable and slides downhill. You'll see how different factors like rain, vegetation, and soil properties affect slope stability.</p>
+        </div>
+        
+        <div class="edu-section">
+            <h4>🌿 Environmental Factors (What You Can Change)</h4>
+            
+            <div class="edu-item">
+                <strong>🌱 Vegetation Cover</strong>
+                <p>Plants and trees on the slope. Their roots hold soil together like natural anchors.</p>
+                <ul>
+                    <li><strong>High vegetation (70-100%):</strong> More stable - roots bind soil</li>
+                    <li><strong>Low vegetation (0-30%):</strong> Less stable - soil easily moves</li>
+                </ul>
+            </div>
 
+            <div class="edu-item">
+                <strong>🏔️ Soil Erosion Level</strong>
+                <p>How much the soil has been worn away by weather and time.</p>
+                <ul>
+                    <li><strong>Low erosion (0-20%):</strong> Soil is strong and cohesive</li>
+                    <li><strong>High erosion (60-100%):</strong> Soil is weak and crumbly</li>
+                </ul>
+            </div>
+
+            <div class="edu-item">
+                <strong>💧 Initial Soil Moisture</strong>
+                <p>How wet the soil is before rain starts.</p>
+                <ul>
+                    <li><strong>Dry soil (0-30%):</strong> Can absorb more water initially</li>
+                    <li><strong>Wet soil (60-100%):</strong> Already saturated, adds pressure quickly</li>
+                </ul>
+            </div>
+
+            <div class="edu-item">
+                <strong>🌧️ Rainfall Intensity</strong>
+                <p>How hard it's raining (millimeters per hour).</p>
+                <ul>
+                    <li><strong>Light rain (0-20 mm/hr):</strong> Slow water infiltration</li>
+                    <li><strong>Heavy rain (60-100 mm/hr):</strong> Fast saturation, higher risk</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="edu-section">
+            <h4>🔍 What the Numbers Mean</h4>
+            
+            <div class="edu-item">
+                <strong>🎯 Factor of Safety (FoS)</strong>
+                <p>Think of this as a "strength score" - how much stronger the soil is than it needs to be.</p>
+                <ul>
+                    <li><strong>FoS ≥ 1.5:</strong> ✅ Safe - slope is stable</li>
+                    <li><strong>FoS = 1.0-1.5:</strong> ⚠️ Caution - getting risky</li>
+                    <li><strong>FoS &lt; 1.0:</strong> ❌ Danger - landslide likely!</li>
+                </ul>
+            </div>
+
+            <div class="edu-item">
+                <strong>📊 Probability of Failure (PoF)</strong>
+                <p>The chance (in %) that a landslide will happen. Accounts for uncertainty in measurements.</p>
+                <ul>
+                    <li><strong>PoF &lt; 5%:</strong> Very low risk</li>
+                    <li><strong>PoF = 20-50%:</strong> Moderate to high risk</li>
+                    <li><strong>PoF &gt; 50%:</strong> Extreme risk - failure imminent</li>
+                </ul>
+            </div>
+
+            <div class="edu-item">
+                <strong>💦 Pore Pressure Ratio (rᵤ)</strong>
+                <p>Measures water pressure between soil particles. Higher water pressure = weaker soil.</p>
+                <ul>
+                    <li><strong>rᵤ = 0-0.3:</strong> Relatively dry, stable</li>
+                    <li><strong>rᵤ = 0.5-0.7:</strong> Getting saturated, weakening</li>
+                    <li><strong>rᵤ &gt; 0.8:</strong> Very wet, high failure risk</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="edu-section">
+            <h4>🎮 How to Use the Simulator</h4>
+            <ol class="edu-steps">
+                <li><strong>Start with defaults:</strong> Click "🔄 Reset to Optimal" for safe starting conditions</li>
+                <li><strong>Adjust one factor:</strong> Try increasing erosion or decreasing vegetation</li>
+                <li><strong>Watch the numbers:</strong> See how FoS and PoF change in real-time</li>
+                <li><strong>Start rain:</strong> Click "🌧️ Start Rain" and watch water infiltrate</li>
+                <li><strong>Observe failure:</strong> When conditions are bad enough, landslide triggers automatically!</li>
+                <li><strong>Experiment:</strong> Reset and try different combinations</li>
+            </ol>
+        </div>
+
+        <div class="edu-section">
+            <h4>🧪 Experiment Ideas</h4>
+            <div class="edu-item">
+                <strong>Experiment 1: Role of Vegetation</strong>
+                <p>Set vegetation to 80%, start rain. Watch FoS. Reset, set vegetation to 10%, start rain. Compare how quickly FoS drops!</p>
+            </div>
+            <div class="edu-item">
+                <strong>Experiment 2: Rainfall Effect</strong>
+                <p>Start with defaults. Try light rain (10 mm/hr) vs heavy rain (80 mm/hr). Which triggers failure faster?</p>
+            </div>
+            <div class="edu-item">
+                <strong>Experiment 3: Combined Factors</strong>
+                <p>Create worst-case: high erosion (80%), low vegetation (10%), high moisture (70%), heavy rain (80%). How long until failure?</p>
+            </div>
+        </div>
+
+        <div class="edu-section">
+            <h4>⏱️ About Time Acceleration</h4>
+            <p>Real landslides can take hours or days of rain. This simulator speeds up time by 300× so you can see results in minutes instead of waiting hours! 1 second in the simulation = 5 minutes of real time.</p>
+        </div>
+    </div>
+</div>
 <!-- Formula Panel -->
 <div class="formula-panel" id="formulaPanel">
     <button class="formula-toggle" onclick="toggleFormulas()">📚 FORMULAS</button>
