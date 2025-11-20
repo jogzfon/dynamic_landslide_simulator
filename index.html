@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Landslide Dynamics Simulator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="container">
+    <h1>🏔️ Landslide Dynamics Simulator</h1>
+    <p class="subtitle">Interactive infinite slope stability analysis with physics-based infiltration modeling, pore pressure dynamics, and probabilistic failure prediction using First-Order Second-Moment reliability theory.</p>
+    
+    <div class="layout">
+        <!-- Controls Panel -->
+        <div class="controls">
+            <div class="control-group">
+                <h3>🌿 Environmental Factors</h3>
+                
+                <label class="block">Vegetation Cover (%)</label>
+                <div class="slider-container">
+                    <input id="vegetation" type="range" min="0" max="100" step="5" value="50"/>
+                </div>
+                <div class="value-display">
+                    <strong id="vegVal">50%</strong>
+                    <span class="effect">Root cohesion: +<span id="vegEffect">1.5</span> kPa</span>
+                </div>
+
+                <label class="block" style="margin-top:12px">Soil Erosion Level (%)</label>
+                <div class="slider-container">
+                    <input id="erosion" type="range" min="0" max="100" step="5" value="20"/>
+                </div>
+                <div class="value-display">
+                    <strong id="erosionVal">20%</strong>
+                    <span class="effect">Cohesion loss: -<span id="erosionEffect">1.5</span> kPa</span>
+                </div>
+
+                <label class="block" style="margin-top:12px">Initial Soil Moisture (%)</label>
+                <div class="slider-container">
+                    <input id="soilMoisture" type="range" min="0" max="100" step="5" value="30"/>
+                </div>
+                <div class="value-display">
+                    <strong id="moistureVal">30%</strong>
+                    <span class="effect">Initial rᵤ: <span id="moistureEffect">0.30</span></span>
+                </div>
+
+                <label class="block" style="margin-top:12px">Rainfall Intensity (mm/hr)</label>
+                <div class="slider-container">
+                    <input id="rainIntensity" type="range" min="0" max="100" step="5" value="10"/>
+                </div>
+                <div class="value-display">
+                    <strong id="rainVal">10 mm/hr</strong>
+                    <span class="effect">Infiltration rate</span>
+                </div>
+                <div class="time-display" id="timeDisplay">Elapsed: 0.0 min | Rain: 0.0 mm</div>
+            </div>
+
+            <div class="control-group">
+                <h3>⚙️ Geotechnical Parameters</h3>
+                <label class="block">Soil Depth z (m)</label>
+                <input id="soilDepth" type="number" min="0.5" max="10" step="0.1" value="3.0"/>
+                
+                <label class="block">Unit Weight γ (kN/m³)</label>
+                <input id="unitWeight" type="number" min="15" max="22" step="0.1" value="19.0"/>
+                
+                <label class="block">Base Cohesion c' (kPa)</label>
+                <input id="cohesionGeo" type="number" min="0" max="50" step="1" value="15"/>
+                
+                <label class="block">Friction Angle φ' (°)</label>
+                <input id="phiGeo" type="number" min="15" max="45" step="0.5" value="32"/>
+                
+                <label class="block">Slope Angle β (°)</label>
+                <input id="slopeAngle" type="number" min="5" max="60" step="1" value="30"/>
+                
+                <label class="block">Hydraulic Conductivity k (×10⁻⁶ m/s)</label>
+                <input id="hydCond" type="number" min="0.1" max="100" step="0.5" value="5.0"/>
+                
+                <div class="info-box">
+                    <strong>Model Validity:</strong> Infinite slope assumes uniform soil, parallel failure surface, and slope length >> depth. Valid for β < φ' and L/z > 25.
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>📊 Reliability Analysis</h3>
+                <label class="block">Coefficient of Variation (CoV)</label>
+                <div class="slider-container">
+                    <input id="fosSigma" type="range" min="0.05" max="0.40" step="0.01" value="0.15"/>
+                </div>
+                <div class="value-display">
+                    <strong id="covVal">15%</strong>
+                    <span class="effect">Parameter uncertainty</span>
+                </div>
+                <div class="info-box">
+                    <strong>About CoV:</strong> Represents material variability and measurement uncertainty. Typical: Dense soil (10-15%), Loose soil (20-30%), Highly variable (30-40%)
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>🎮 Simulation Controls</h3>
+                <button id="rainBtn" class="btn-rain">🌧️ Start Rain</button>
+                <button id="triggerBtn" class="btn-warning">⚠️ Force Landslide</button>
+                <button id="resetBtn" class="btn-secondary">🔄 Reset Simulation</button>
+                
+                <div class="rain-status" id="rainStatus" style="display:none">
+                    <strong>🌧️ Rain Active</strong><br>
+                    Time: <span id="rainTime">0.0</span> min<br>
+                    Infiltration: <span id="infiltStatus">—</span> mm<br>
+                    rᵤ rate: <span id="ruRate">—</span>/hr
+                </div>
+                
+                <div class="info-box" style="margin-top:12px">
+                    <strong>⚡ Auto-Trigger:</strong> Landslide automatically initiates when FoS &lt; 1.0 or PoF &gt; 50%. Rain increases pore pressure based on infiltration physics!
+                </div>
+                
+                <div class="info-box" style="margin-top:8px;background:#fef3c7;border-left-color:#f59e0b;color:#78350f">
+                    <strong>⏱️ Time Acceleration:</strong> Simulation runs at 300× speed (1 real second = 5 simulated minutes) to demonstrate rainfall effects within reasonable viewing time.
+                </div>
+            </div>
+
+            <div class="explain">
+                <strong>🔬 Infinite Slope Stability Equations</strong><br>
+                <strong style="margin-top:8px;display:block">Factor of Safety:</strong>
+                FoS = [c'ₑff + (γz cos²β - u)tan φ'ₑff] / [γz sinβ cosβ]<br>
+                <strong style="margin-top:6px;display:block">Effective Parameters:</strong>
+                - c'ₑff = c'₀(1 + 0.15V)(1 - 0.55E)<br>
+                - φ'ₑff = φ'₀ + 1.5V° (vegetation roughness)<br>
+                - u = rᵤγwz (pore water pressure)<br>
+                <strong style="margin-top:6px;display:block">Infiltration Model:</strong>
+                rᵤ(t) = rᵤ₀ + [min(I,k)·t]/(n·z) · f(k)<br>
+                where I = rainfall, k = conductivity, n = porosity, f(k) = permeability factor<br>
+                <strong style="margin-top:6px;display:block">Probability of Failure:</strong>
+                PoF = Φ[(1 - μ_FoS)/(σ_FoS)] where σ = CoV × μ_FoS
+            </div>
+            
+            <div class="warning-box">
+                <strong>⚠️ Important Limitations:</strong><br>
+                • <strong>Time acceleration:</strong> 300× speed with empirical calibration - use for conceptual understanding, not quantitative predictions<br>
+                • <strong>Simplified infiltration:</strong> Doesn't use full Green-Ampt; assumes uniform wetting front<br>
+                • <strong>Homogeneous soil:</strong> Real slopes have layers with different properties<br>
+                • <strong>2D analysis:</strong> Ignores 3D effects and lateral water flow<br>
+                • <strong>FOSM simplification:</strong> Applies CoV to FoS directly; true FOSM propagates parameter uncertainties<br>
+                • <strong>No progressive failure:</strong> Assumes simultaneous failure across entire zone<br>
+                • <strong>Vegetation simplified:</strong> No time-dependent root decay or seasonal variations<br>
+                • <strong>Valid only when:</strong> β &lt; φ', L/z &gt; 25, parallel seepage assumption holds
+            </div>
+        </div>
+
+        <!-- Canvas Area -->
+        <div class="canvas-area">
+            <div class="canvas-wrapper">
+                <canvas id="mainCanvas" width="1000" height="480"></canvas>
+            </div>
+            
+            <div class="canvas-zoom-controls">
+                <button class="canvas-zoom-btn" onclick="zoomCanvas(-1)">🔍- Zoom Out</button>
+                <div class="canvas-zoom-level" id="canvasZoomLevel">Zoom: 100%</div>
+                <button class="canvas-zoom-btn" onclick="zoomCanvas(1)">🔍+ Zoom In</button>
+                <button class="canvas-zoom-btn" onclick="resetZoom()">↺ Reset View</button>
+            </div>
+            
+            <div class="stats">
+                <div class="stat">
+                    <div class="label">Factor of Safety</div>
+                    <div class="value" id="fosValue">—</div>
+                    <div class="desc" id="fosStatus">Calculating...</div>
+                </div>
+                <div class="stat">
+                    <div class="label">Failure Probability</div>
+                    <div class="value" id="pofValue">—</div>
+                    <div class="desc" id="pofStatus">Calculating...</div>
+                </div>
+                <div class="stat">
+                    <div class="label">Pore Pressure Ratio</div>
+                    <div class="value" id="ruValue">—</div>
+                    <div class="desc">rᵤ = u / (γwz)</div>
+                </div>
+                <div class="stat">
+                    <div class="label">Effective Cohesion</div>
+                    <div class="value" id="ceffValue">—</div>
+                    <div class="desc">With vegetation & erosion</div>
+                </div>
+                <div class="stat">
+                    <div class="label">System Status</div>
+                    <div class="value" id="systemStatus">🟢 Stable</div>
+                    <div class="desc">Displaced: <strong id="fallenCount">0</strong> particles</div>
+                </div>
+            </div>
+
+            <div class="chart-wrap">
+                <div>
+                    <canvas id="trendCanvas" width="920" height="180"></canvas>
+                </div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:#2563eb"></div>
+                        <span><strong>Factor of Safety</strong><br><small>Target: FoS ≥ 1.5</small></span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:#dc2626"></div>
+                        <span><strong>Failure Prob (%)</strong><br><small>Target: PoF &lt; 5%</small></span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:#10b981"></div>
+                        <span><strong>Threshold Line</strong><br><small>FoS = 1.0 (Limit)</small></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Formula Panel -->
+<div class="formula-panel" id="formulaPanel">
+    <button class="formula-toggle" onclick="toggleFormulas()">📚 FORMULAS</button>
+    <div class="formula-header">
+        <span>🔍 Theory & Equations</span>
+        <button onclick="toggleFormulas()" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;padding:0 5px">×</button>
+    </div>
+    <div class="formula-content" id="formulaContent">
+        <div class="formula-section">
+            <h4>🎯 Factor of Safety (FoS)</h4>
+            <div class="formula-eq">
+                FoS = [c'ₑff + (γz cos²β - u)tan φ'ₑff] / [γz sinβ cosβ]
+            </div>
+            <div class="formula-desc">
+                <strong>Where:</strong><br>
+                • c'ₑff = effective cohesion (kPa)<br>
+                • γ = unit weight of soil (kN/m³)<br>
+                • z = soil depth (m)<br>
+                • β = slope angle (degrees)<br>
+                • u = pore water pressure (kPa)<br>
+                • φ'ₑff = effective friction angle (degrees)
+            </div>
+        </div>
+    
+        <div class="formula-section">
+            <h4>🌿 Vegetation Effect on Cohesion</h4>
+            <div class="formula-eq">
+                c'ₑff = c'₀ × (1 + 0.15V) × (1 - 0.55E)
+            </div>
+            <div class="formula-desc">
+                <strong>Parameters:</strong><br>
+                • c'₀ = base cohesion<br>
+                • V = vegetation cover (0-1)<br>
+                • E = erosion level (0-1)<br>
+                <strong>Effect:</strong> Vegetation adds root cohesion (~15% increase), erosion removes it (~55% loss)
+            </div>
+        </div>
+    
+        <div class="formula-section">
+            <h4>💧 Pore Pressure Ratio (rᵤ)</h4>
+            <div class="formula-eq">
+                rᵤ(t) = rᵤ₀ + [min(I,k)·t]/(n·z) · f(k)
+            </div>
+            <div class="formula-desc">
+                <strong>Components:</strong><br>
+                • rᵤ₀ = initial moisture (0-1)<br>
+                • I = rainfall intensity (mm/hr)<br>
+                • k = hydraulic conductivity (m/s)<br>
+                • n = porosity (~0.35)<br>
+                • f(k) = permeability factor<br>
+                <strong>Note:</strong> Infiltration limited by min(rainfall, conductivity)
+            </div>
+        </div>
+    
+        <div class="formula-section">
+            <h4>📊 Probability of Failure (PoF)</h4>
+            <div class="formula-eq">
+                PoF = Φ[(1 - μ_FoS) / σ_FoS]<br>
+                where σ_FoS = CoV × μ_FoS
+            </div>
+            <div class="formula-desc">
+                <strong>FOSM Method:</strong><br>
+                • Φ = standard normal CDF<br>
+                • CoV = coefficient of variation<br>
+                • μ_FoS = mean factor of safety<br>
+                <strong>Interpretation:</strong> Accounts for parameter uncertainty in soil properties
+            </div>
+        </div>
+    
+        <div class="formula-section">
+            <h4>⚖️ Mohr-Coulomb Criterion</h4>
+            <div class="formula-eq">
+                τf = c' + σ' × tan(φ')
+            </div>
+            <div class="formula-desc">
+                <strong>Shear Strength:</strong><br>
+                • τf = shear strength<br>
+                • σ' = effective normal stress<br>
+                • Failure occurs when driving stress exceeds shear strength
+            </div>
+        </div>
+    
+        <div class="zoom-controls">
+            <button class="zoom-btn" onclick="zoomPanel(-1)">🔍- Zoom Out</button>
+            <button class="zoom-btn" onclick="zoomPanel(1)">🔍+ Zoom In</button>
+        </div>
+        <div class="zoom-level" id="zoomLevel">Zoom: 100%</div>
+    </div>
+</div>
+
+<div id="tooltip" class="tooltip"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
