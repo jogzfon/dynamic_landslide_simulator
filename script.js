@@ -249,45 +249,20 @@ function computeRU() {
     const baseSat = env.moisture;
 
     if (raining) {
-        // Time acceleration: 1 real second = 5 simulated minutes (300x)
         const timeAcceleration = 300;
         const simulatedTime = simulationTime * timeAcceleration;
-
-        // Rainfall intensity (mm/hr to m/hr)
         const I_mm_per_hr = env.rain;
         const I_m_per_hr = I_mm_per_hr / 1000;
-
-        // Hydraulic conductivity (m/s to m/hr)
         const k_m_per_hr = env.k * 3600;
-
-        // Infiltration rate: limited by min(rainfall, soil permeability)
-        // If rainfall > k, excess becomes runoff
         const infiltRate_m_per_hr = Math.min(I_m_per_hr, k_m_per_hr);
-
-        // Simulated time in hours
         const simulatedHours = simulatedTime / 3600;
-
-        // Cumulative infiltration depth (m)
         const infiltDepth = infiltRate_m_per_hr * simulatedHours;
-
-        // Porosity (typical for soil: 0.3-0.4)
         const porosity = 0.35;
-
-        // Permeability factor: lower k soils build pressure faster
-        // When k is low, water can't drain, causing faster pressure buildup
         const permeabilityFactor = Math.max(0.5, Math.min(2.0, 1.0 / (k_m_per_hr * 100 + 0.01)));
-
-        // Change in pore pressure ratio
-        // Δrᵤ = (infiltrated volume) / (available pore volume) × permeability effect
         const ruIncrease = Math.min(0.70, (infiltDepth / (env.soilDepth * porosity)) * permeabilityFactor * 1.5);
-
-        // Erosion effect: damaged soil structure accelerates saturation
         const erosionEffect = env.erosion * 0.15;
-
-        // Total pore pressure ratio (capped at 0.95 for numerical stability)
         const totalRu = Math.min(0.95, baseSat + ruIncrease + erosionEffect);
 
-        // Update display
         const displayMinutes = simulatedHours * 60;
         document.getElementById('rainTime').textContent = displayMinutes.toFixed(1);
         document.getElementById('infiltStatus').textContent = (infiltDepth * 1000).toFixed(1);
@@ -304,26 +279,18 @@ function computeRU() {
     return baseSat + env.erosion * 0.08;
 }
 
-// Effective Cohesion (Wu et al., 1979; Greenway, 1987)
+// Effective Cohesion
 function computeEffCohesion() {
     const env = getEnv();
     const base = env.cohesion;
-
-    // Vegetation root cohesion: 10-20% increase
-    // Studies show root reinforcement adds 2-5 kPa for dense vegetation
     const vegBoost = 1 + env.vegetation * 0.18;
-
-    // Erosion reduces cohesion by removing binding particles
-    // Severe erosion can reduce cohesion by 40-60%
     const erosionRed = 1 - env.erosion * 0.50;
-
     return Math.max(0.5, base * vegBoost * erosionRed);
 }
 
 // Effective Friction Angle
 function computeEffFriction() {
     const env = getEnv();
-    // Vegetation increases surface roughness: ~1-2° at full cover
     return env.phi + env.vegetation * 1.5;
 }
 
@@ -338,33 +305,15 @@ function computeFoS() {
     const ru = computeRU();
     env.ru = ru;
 
-    // Physical constraint: For cohesionless soil, β must be < φ'
-    if (beta > phi && c < 2) {
-        console.warn("⚠️ Warning: Slope angle exceeds friction angle with minimal cohesion - infinite slope model may not be valid");
-    }
-
-    // Pore water pressure: u = rᵤ × γw × z
     const u = ru * GAMMA_W * z;
-
-    // Normal stress: σ = γ × z × cos²(β)
     const normalStress = gamma * z * Math.pow(Math.cos(beta), 2);
-
-    // Effective normal stress: σ' = σ - u
     const effectiveStress = Math.max(0, normalStress - u);
-
-    // Mohr-Coulomb shear strength: τf = c' + σ' × tan(φ')
     const shearStrength = c + effectiveStress * Math.tan(phi);
-
-    // Driving shear stress: τd = γ × z × sin(β) × cos(β)
     const drivingStress = gamma * z * Math.sin(beta) * Math.cos(beta);
 
-    // Avoid division by zero
     if (Math.abs(drivingStress) < 1e-6) return 999;
 
-    // Factor of Safety: FoS = τf / τd
     const fos = shearStrength / drivingStress;
-
-    // Clamp to reasonable range for visualization
     return Math.max(0, Math.min(20, fos));
 }
 
@@ -428,11 +377,6 @@ function updateRisk() {
         return;
     }
 
-    const env = getEnv();
-    if (env.slopeAngle >= env.phi && env.cohesion < 5) {
-        console.warn("⚠️ Model warning: Slope angle ≥ friction angle with low cohesion");
-    }
-
     const fos = computeFoS();
     const cov = parseFloat(document.getElementById("fosSigma").value);
     const pof = computePoF(fos, cov);
@@ -474,13 +418,14 @@ function updateRisk() {
         sysEl.textContent = "🔴 FAILING";
     }
 
+    // Auto-trigger landslide based on probability
     if (!autoSlideTriggered && !slidingActive && (fos < 1.0 || pof > 0.5)) {
         autoSlideTriggered = true;
         setTimeout(() => startLandslide(true), 800);
     }
 }
 
-// Start Landslide
+// Start Landslide - Now properly uses probability
 function startLandslide(isAuto = false) {
     if (slidingActive) return;
     slidingActive = true;
@@ -493,39 +438,57 @@ function startLandslide(isAuto = false) {
     const fos = computeFoS();
     const cov = parseFloat(document.getElementById("fosSigma").value);
     const pof = computePoF(fos, cov);
-    const failZone = isAuto ? 180 : 140;
-    const failMult = isAuto ? 1.2 : 0.9;
+    
+    // Failure zone size based on conditions
+    const baseFailZone = isAuto ? 180 : 140;
+    const fosMultiplier = Math.max(0.5, (1.5 - fos)); // Lower FoS = larger zone
+    const failZone = baseFailZone * (1 + fosMultiplier * 0.5);
+    
     let affected = 0;
 
     particles.forEach(pt => {
         if (pt.fallen) return;
         const dx = Math.abs(pt.x - seedX);
         if (dx < failZone) {
-            const s = 1 - dx / failZone;
-            const thresh = pof * s * (0.6 + 0.7 * rng.next()) * failMult;
-            if (rng.next() < thresh) {
+            // Probability-based failure determination
+            const distanceFactor = 1 - dx / failZone; // Closer to epicenter = higher probability
+            const baseProb = isAuto ? pof * 0.9 : pof * 0.7; // Auto-trigger uses higher probability
+            const finalProb = baseProb * distanceFactor * (0.6 + 0.7 * rng.next());
+            
+            // Each particle has independent probability to fail
+            if (rng.next() < finalProb) {
                 pt.stable = false;
                 const slopeRad = getEnv().slopeAngle * Math.PI / 180;
                 const dir = Math.sign(Math.sin(slopeRad)) || (rng.next() > 0.5 ? 1 : -1);
+                
+                // Speed scales with FoS deficit and distance from epicenter
                 const speedFactor = Math.max(0.3, (1.5 - fos)) * 1.8 + 0.4;
-                pt.vx = dir * (0.4 + 0.6 * rng.next()) * speedFactor;
+                const distanceSpeedMod = 0.5 + 0.5 * distanceFactor;
+                
+                pt.vx = dir * (0.4 + 0.6 * rng.next()) * speedFactor * distanceSpeedMod;
                 pt.vy = -0.2 * rng.next();
+                
                 if (rng.next() > 0.82) debris.push(new DebrisCloud(pt.x, pt.y));
                 affected++;
             }
         }
     });
 
+    // Trees affected by probability
     trees.forEach(t => {
         const dx = Math.abs(t.x - seedX);
-        if (dx < failZone * 0.8 && rng.next() < 0.75 * pof * failMult) {
-            t.fallen = true;
-            t.targetAngle = (t.x - seedX) > 0 ? 0.3 * Math.PI : -0.3 * Math.PI;
+        if (dx < failZone * 0.8) {
+            const distanceFactor = 1 - dx / (failZone * 0.8);
+            const treeFailProb = pof * 0.75 * distanceFactor;
+            if (rng.next() < treeFailProb) {
+                t.fallen = true;
+                t.targetAngle = (t.x - seedX) > 0 ? 0.3 * Math.PI : -0.3 * Math.PI;
+            }
         }
     });
 
     requestAnimationFrame(animate);
-    console.log((isAuto ? "AUTO-" : "") + "Landslide | FoS:", fos.toFixed(3), "| PoF:", (100 * pof).toFixed(2) + "%", "| Affected:", affected);
+    console.log((isAuto ? "AUTO-" : "") + "Landslide | FoS:", fos.toFixed(3), "| PoF:", (100 * pof).toFixed(2) + "%", "| Affected:", affected, "particles");
 }
 
 // Toggle Rain
@@ -604,8 +567,7 @@ function generateTerrain() {
 
     originalTerrain = terrain.map(t => ({ x: t.x, y: t.y }));
 
-    // IMPORTANT: Create new RNG instance for particles to ensure consistent generation
-    // This prevents the "all gravel" issue on reset
+    // Create new RNG for particles
     rng = new Random(currentSeed + 1000);
 
     populateVegetationAndParticles();
@@ -637,15 +599,11 @@ function populateVegetationAndParticles() {
                 let type = "soil";
                 const r = 100 * rng.next();
 
-                // Rock: 8% base probability
                 if (r < 8) {
                     type = "rock";
-                }
-                // Vegetation: scales with vegetation cover (0-30% probability)
-                else if (r < 8 + (env.vegetation * 30)) {
+                } else if (r < 8 + (env.vegetation * 30)) {
                     type = "vegetation";
                 }
-                // Otherwise soil
 
                 particles.push(new Particle(px, py - s * 1.8, type));
             }
@@ -798,7 +756,8 @@ function animate() {
         ctx.restore();
     }
 
-    if (needsRedraw || Date.now() % 10 === 0) {
+    // Update stats periodically
+    if (needsRedraw || raining) {
         fallenParticles = particles.filter(p => p.fallen).length;
         document.getElementById("fallenCount").textContent = fallenParticles;
         updateRisk();
@@ -939,7 +898,6 @@ function zoomCanvas(direction) {
     canvasZoom += direction * 0.2;
     canvasZoom = Math.max(0.5, Math.min(3, canvasZoom));
 
-    // Adjust offset to zoom towards center
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const zoomFactor = canvasZoom / oldZoom;
@@ -1091,7 +1049,6 @@ function zoomPanel(direction) {
 
 // Resize Handler
 function resizeCanvases() {
-    const rect = canvas.getBoundingClientRect();
     const parentWidth = canvas.parentElement.clientWidth - 24;
     canvas.width = Math.max(700, parentWidth);
     canvas.height = 450;
