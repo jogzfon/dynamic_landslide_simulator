@@ -1167,3 +1167,370 @@ window.addEventListener('resize', () => {
     resizeCanvases();
     generateTerrain();
 })();
+
+function toggleEducational() {
+    const panel = document.getElementById("educationalPanel");
+    panel.classList.toggle("open");
+}
+
+function toggleSimInfo() {
+    const panel = document.getElementById("simInfoPanel");
+    panel.classList.toggle("open");
+}
+
+function toggleGeoParams() {
+    const panel = document.getElementById("geoParamsPanel");
+    panel.classList.toggle("open");
+}
+
+function toggleCalcDetails() {
+    const panel = document.getElementById("calcDetailsPanel");
+    panel.classList.remove("open");
+}
+
+function showCalcDetails(type) {
+    const panel = document.getElementById("calcDetailsPanel");
+    const titleEl = document.getElementById("calcDetailsTitle");
+    const contentEl = document.getElementById("calcDetailsContent");
+    
+    const env = getEnv();
+    const ru = computeRU();
+    env.ru = ru;
+    
+    let content = '';
+    
+    if (type === 'fos') {
+        const z = env.soilDepth;
+        const gamma = env.unitWeight;
+        const c = computeEffCohesion();
+        const phi = computeEffFriction() * Math.PI / 180;
+        const beta = env.slopeAngle * Math.PI / 180;
+        const u = ru * GAMMA_W * z;
+        const normalStress = gamma * z * Math.pow(Math.cos(beta), 2);
+        const effectiveStress = Math.max(0, normalStress - u);
+        const shearStrength = c + effectiveStress * Math.tan(phi);
+        const drivingStress = gamma * z * Math.sin(beta) * Math.cos(beta);
+        const fos = shearStrength / drivingStress;
+        
+        titleEl.textContent = '📊 Factor of Safety Calculation';
+        content = `
+            <div class="edu-section">
+                <h4>🎯 Factor of Safety (FoS)</h4>
+                <div style="background:#1e293b;padding:12px;border-radius:6px;margin:8px 0;font-family:monospace;color:#e2e8f0">
+                    FoS = Shear Strength / Driving Stress
+                </div>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 1: Input Values</h4>
+                <div class="edu-item">
+                    <ul>
+                        <li>Soil depth z = ${z.toFixed(2)} m</li>
+                        <li>Unit weight γ = ${gamma.toFixed(1)} kN/m³</li>
+                        <li>Effective cohesion c' = ${c.toFixed(2)} kPa</li>
+                        <li>Friction angle φ' = ${(phi * 180 / Math.PI).toFixed(2)}°</li>
+                        <li>Slope angle β = ${(beta * 180 / Math.PI).toFixed(2)}°</li>
+                        <li>Pore pressure ratio rᵤ = ${ru.toFixed(3)}</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 2: Calculate Stresses</h4>
+                <div class="edu-item">
+                    <p><strong>Pore water pressure:</strong></p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #3b82f6;margin:8px 0; color: black;">
+                        u = rᵤ × γw × z = ${ru.toFixed(3)} × ${GAMMA_W.toFixed(2)} × ${z.toFixed(2)} = <strong>${u.toFixed(2)} kPa</strong>
+                    </div>
+                    
+                    <p><strong>Normal stress:</strong></p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #3b82f6;margin:8px 0; color: black;">
+                        σ = γ × z × cos²(β) = ${gamma.toFixed(1)} × ${z.toFixed(2)} × ${Math.pow(Math.cos(beta), 2).toFixed(3)} = <strong>${normalStress.toFixed(2)} kPa</strong>
+                    </div>
+                    
+                    <p><strong>Effective stress:</strong></p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #3b82f6;margin:8px 0; color: black;">
+                        σ' = σ - u = ${normalStress.toFixed(2)} - ${u.toFixed(2)} = <strong>${effectiveStress.toFixed(2)} kPa</strong>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 3: Calculate Strengths</h4>
+                <div class="edu-item">
+                    <p><strong>Shear strength (Mohr-Coulomb):</strong></p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #10b981;margin:8px 0; color: black;">
+                        τ = c' + σ' × tan(φ') = ${c.toFixed(2)} + ${effectiveStress.toFixed(2)} × ${Math.tan(phi).toFixed(3)} = <strong>${shearStrength.toFixed(2)} kPa</strong>
+                    </div>
+                    
+                    <p><strong>Driving stress:</strong></p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #dc2626;margin:8px 0; color: black;">
+                        τd = γ × z × sin(β) × cos(β) = ${gamma.toFixed(1)} × ${z.toFixed(2)} × ${Math.sin(beta).toFixed(3)} × ${Math.cos(beta).toFixed(3)} = <strong>${drivingStress.toFixed(2)} kPa</strong>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 4: Final Result</h4>
+                <div class="edu-item">
+                    <div style="background:#1e293b;padding:16px;border-radius:6px;margin:8px 0;text-align:center">
+                        <div style="color:#e2e8f0;font-size:0.9em;margin-bottom:8px">Factor of Safety =</div>
+                        <div style="color:#10b981;font-size:1.8em;font-weight:bold">${fos.toFixed(3)}</div>
+                        <div style="color:#94a3b8;font-size:0.85em;margin-top:8px">
+                            ${fos >= 1.5 ? '✅ Safe - Acceptable' : fos >= 1.0 ? '⚠️ Marginal - Monitor' : '❌ Failure Imminent'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (type === 'pof') {
+        const fos = computeFoS();
+        const cov = parseFloat(document.getElementById("fosSigma").value);
+        const sigma = cov * fos;
+        const z = (1 - fos) / sigma;
+        const pof = computePoF(fos, cov);
+        
+        titleEl.textContent = '📊 Probability of Failure Calculation';
+        content = `
+            <div class="edu-section">
+                <h4>📈 Probability of Failure (PoF)</h4>
+                <div style="background:#1e293b;padding:12px;border-radius:6px;margin:8px 0;font-family:monospace;color:#e2e8f0">
+                    PoF = Φ[(1 - μ_FoS) / σ_FoS]
+                </div>
+                <p style="margin-top:8px">Where Φ is the standard normal cumulative distribution function</p>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 1: Input Values</h4>
+                <div class="edu-item">
+                    <ul>
+                        <li>Mean Factor of Safety μ_FoS = ${fos.toFixed(3)}</li>
+                        <li>Coefficient of Variation CoV = ${(cov * 100).toFixed(0)}% = ${cov.toFixed(3)}</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 2: Calculate Standard Deviation</h4>
+                <div class="edu-item">
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #3b82f6;margin:8px 0; color: black;">
+                        σ_FoS = CoV × μ_FoS = ${cov.toFixed(3)} × ${fos.toFixed(3)} = <strong>${sigma.toFixed(4)}</strong>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 3: Calculate Reliability Index</h4>
+                <div class="edu-item">
+                    <p>The reliability index β measures how many standard deviations away from failure:</p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #3b82f6;margin:8px 0; color: black;">
+                        β = (μ_FoS - 1) / σ_FoS = (${fos.toFixed(3)} - 1) / ${sigma.toFixed(4)} = <strong>${((fos - 1) / sigma).toFixed(3)}</strong>
+                    </div>
+                    <p style="margin-top:8px">For PoF calculation, we use: z = (1 - μ_FoS) / σ_FoS = <strong>${z.toFixed(3)}</strong></p>
+                </div>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 4: Apply Normal Distribution</h4>
+                <div class="edu-item">
+                    <p>Using the standard normal CDF Φ(z):</p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #dc2626;margin:8px 0; color: black;">
+                        PoF = Φ(${z.toFixed(3)}) = <strong>${pof.toFixed(6)}</strong>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 5: Final Result</h4>
+                <div class="edu-item">
+                    <div style="background:#1e293b;padding:16px;border-radius:6px;margin:8px 0;text-align:center">
+                        <div style="color:#e2e8f0;font-size:0.9em;margin-bottom:8px">Probability of Failure =</div>
+                        <div style="color:#dc2626;font-size:1.8em;font-weight:bold">${(pof * 100).toFixed(2)}%</div>
+                        <div style="color:#94a3b8;font-size:0.85em;margin-top:8px">
+                            ${pof < 0.05 ? '✅ Very Low Risk' : pof < 0.20 ? '⚠️ Moderate Risk' : pof < 0.50 ? '⚠️ High Risk' : '❌ Extreme Risk'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (type === 'ru') {
+        const baseSat = env.moisture;
+        const timeAcceleration = 300;
+        const simulatedTime = simulationTime * timeAcceleration;
+        const I_mm_per_hr = env.rain;
+        const I_m_per_hr = I_mm_per_hr / 1000;
+        const k_m_per_hr = env.k * 3600;
+        const infiltRate_m_per_hr = Math.min(I_m_per_hr, k_m_per_hr);
+        const simulatedHours = simulatedTime / 3600;
+        const infiltDepth = infiltRate_m_per_hr * simulatedHours;
+        const porosity = 0.35;
+        const permeabilityFactor = Math.max(0.5, Math.min(2.0, 1.0 / (k_m_per_hr * 100 + 0.01)));
+        const ruIncrease = Math.min(0.70, (infiltDepth / (env.soilDepth * porosity)) * permeabilityFactor * 1.5);
+        const erosionEffect = env.erosion * 0.15;
+        const totalRu = Math.min(0.95, baseSat + ruIncrease + erosionEffect);
+        
+        titleEl.textContent = '📊 Pore Pressure Ratio Calculation';
+        content = `
+            <div class="edu-section">
+                <h4>💧 Pore Pressure Ratio (rᵤ)</h4>
+                <div style="background:#1e293b;padding:12px;border-radius:6px;margin:8px 0;font-family:monospace;color:#e2e8f0">
+                    rᵤ = u / (γw × z)
+                </div>
+                <p style="margin-top:8px">Ratio of pore water pressure to total overburden pressure</p>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 1: Initial Conditions</h4>
+                <div class="edu-item">
+                    <ul>
+                        <li>Initial soil moisture = ${(baseSat * 100).toFixed(0)}%</li>
+                        <li>Initial rᵤ = ${baseSat.toFixed(3)}</li>
+                        <li>Soil depth z = ${env.soilDepth.toFixed(2)} m</li>
+                        <li>Porosity n = ${porosity.toFixed(2)}</li>
+                    </ul>
+                </div>
+            </div>
+            
+            ${raining ? `
+            <div class="edu-section">
+                <h4>Step 2: Rainfall Infiltration</h4>
+                <div class="edu-item">
+                    <p><strong>Rainfall parameters:</strong></p>
+                    <ul>
+                        <li>Rainfall intensity I = ${I_mm_per_hr.toFixed(1)} mm/hr = ${(I_m_per_hr * 1000).toFixed(3)} m/hr</li>
+                        <li>Hydraulic conductivity k = ${(env.k * 1e6).toFixed(1)} × 10⁻⁶ m/s = ${(k_m_per_hr * 1000).toFixed(3)} m/hr</li>
+                        <li>Simulated time = ${simulatedHours.toFixed(2)} hours</li>
+                    </ul>
+                    
+                    <p><strong>Infiltration rate (limited by soil):</strong></p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #06b6d4;margin:8px 0; color: black;">
+                        Rate = min(I, k) = min(${(I_m_per_hr * 1000).toFixed(3)}, ${(k_m_per_hr * 1000).toFixed(3)}) = <strong>${(infiltRate_m_per_hr * 1000).toFixed(3)} m/hr</strong>
+                    </div>
+                    
+                    <p><strong>Total infiltration depth:</strong></p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #06b6d4;margin:8px 0; color: black;">
+                        d = Rate × time = ${(infiltRate_m_per_hr * 1000).toFixed(3)} × ${simulatedHours.toFixed(2)} = <strong>${(infiltDepth * 1000).toFixed(1)} mm</strong>
+                    </div>
+                    
+                    <p><strong>Pore pressure increase:</strong></p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #06b6d4;margin:8px 0; color: black;">
+                        Δrᵤ = (d / (n × z)) × f(k) × 1.5 = ${ruIncrease.toFixed(4)}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 3: Erosion Effect</h4>
+                <div class="edu-item">
+                    <p>Erosion reduces soil structure, allowing faster saturation:</p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #f59e0b;margin:8px 0; color: black;">
+                        Erosion effect = ${(env.erosion * 100).toFixed(0)}% × 0.15 = <strong>${erosionEffect.toFixed(4)}</strong>
+                    </div>
+                </div>
+            </div>
+            ` : `
+            <div class="edu-section">
+                <h4>Step 2: No Active Rainfall</h4>
+                <div class="edu-item">
+                    <p>Rain is not currently active. Pore pressure is based on initial moisture and erosion only.</p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #f59e0b;margin:8px 0; color: black;">
+                        Erosion effect = ${(env.erosion * 100).toFixed(0)}% × 0.08 = <strong>${(env.erosion * 0.08).toFixed(4)}</strong>
+                    </div>
+                </div>
+            </div>
+            `}
+            
+            <div class="edu-section">
+                <h4>Step ${raining ? '4' : '3'}: Final Result</h4>
+                <div class="edu-item">
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #06b6d4;margin:8px 0; color: black;">
+                        rᵤ = Initial + ${raining ? 'Rain increase + Erosion' : 'Erosion'}<br>
+                        rᵤ = ${baseSat.toFixed(3)} + ${raining ? ruIncrease.toFixed(4) + ' + ' + erosionEffect.toFixed(4) : (env.erosion * 0.08).toFixed(4)}
+                    </div>
+                    <div style="background:#1e293b;padding:16px;border-radius:6px;margin:8px 0;text-align:center">
+                        <div style="color:#e2e8f0;font-size:0.9em;margin-bottom:8px">Pore Pressure Ratio =</div>
+                        <div style="color:#06b6d4;font-size:1.8em;font-weight:bold">${(raining ? totalRu : baseSat + env.erosion * 0.08).toFixed(3)}</div>
+                        <div style="color:#94a3b8;font-size:0.85em;margin-top:8px">
+                            ${totalRu < 0.3 ? '✅ Relatively dry, stable' : totalRu < 0.7 ? '⚠️ Getting saturated' : '❌ Very wet, high risk'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (type === 'ceff') {
+        const base = env.cohesion;
+        const vegBoost = 1 + env.vegetation * 0.18;
+        const erosionRed = 1 - env.erosion * 0.50;
+        const ceff = Math.max(0.5, base * vegBoost * erosionRed);
+        const vegContribution = base * env.vegetation * 0.18;
+        const erosionLoss = base * env.erosion * 0.50;
+        
+        titleEl.textContent = '📊 Effective Cohesion Calculation';
+        content = `
+            <div class="edu-section">
+                <h4>🌿 Effective Cohesion (c'eff)</h4>
+                <div style="background:#1e293b;padding:12px;border-radius:6px;margin:8px 0;font-family:monospace;color:#e2e8f0">
+                    c'eff = c'₀ × (1 + 0.18V) × (1 - 0.50E)
+                </div>
+                <p style="margin-top:8px">Where V = vegetation cover, E = erosion level</p>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 1: Base Cohesion</h4>
+                <div class="edu-item">
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #6b7280;margin:8px 0; color: black;">
+                        Base cohesion c'₀ = <strong>${base.toFixed(1)} kPa</strong>
+                    </div>
+                    <p>This is the inherent strength from particle bonding and cementation.</p>
+                </div>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 2: Vegetation Enhancement</h4>
+                <div class="edu-item">
+                    <p>Vegetation cover = ${(env.vegetation * 100).toFixed(0)}%</p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #10b981;margin:8px 0; color: black;">
+                        Vegetation multiplier = 1 + 0.18 × ${env.vegetation.toFixed(2)} = <strong>${vegBoost.toFixed(3)}</strong>
+                    </div>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #10b981;margin:8px 0; color: black;">
+                        Root cohesion added = ${base.toFixed(1)} × ${(env.vegetation * 0.18).toFixed(3)} = <strong>+${vegContribution.toFixed(1)} kPa</strong>
+                    </div>
+                    <p>Plant roots create a natural reinforcement network in the soil.</p>
+                </div>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 3: Erosion Reduction</h4>
+                <div class="edu-item">
+                    <p>Erosion level = ${(env.erosion * 100).toFixed(0)}%</p>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #dc2626;margin:8px 0; color: black;">
+                        Erosion multiplier = 1 - 0.50 × ${env.erosion.toFixed(2)} = <strong>${erosionRed.toFixed(3)}</strong>
+                    </div>
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #dc2626;margin:8px 0; color: black;">
+                        Cohesion lost to erosion = ${base.toFixed(1)} × ${(env.erosion * 0.50).toFixed(3)} = <strong>-${erosionLoss.toFixed(1)} kPa</strong>
+                    </div>
+                    <p>Erosion breaks down particle bonds and removes fine material that provides cohesion.</p>
+                </div>
+            </div>
+            
+            <div class="edu-section">
+                <h4>Step 4: Combined Effect</h4>
+                <div class="edu-item">
+                    <div style="background:#f8fafc;padding:8px;border-left:3px solid #3b82f6;margin:8px 0; color: black;">
+                        c'eff = ${base.toFixed(1)} × ${vegBoost.toFixed(3)} × ${erosionRed.toFixed(3)}
+                    </div>
+                    <div style="background:#1e293b;padding:16px;border-radius:6px;margin:8px 0;text-align:center">
+                        <div style="color:#e2e8f0;font-size:0.9em;margin-bottom:8px">Effective Cohesion =</div>
+                        <div style="color:#10b981;font-size:1.8em;font-weight:bold">${ceff.toFixed(1)} kPa</div>
+                        <div style="color:#94a3b8;font-size:0.85em;margin-top:8px">
+                            Net change: ${(ceff - base).toFixed(1)} kPa from base
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    contentEl.innerHTML = content;
+    panel.classList.add("open");
+}
