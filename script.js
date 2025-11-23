@@ -427,11 +427,12 @@ function updateRisk() {
 
 // Start Landslide - Now properly uses probability
 function startLandslide(isAuto = false) {
-    if (slidingActive) return;
-    slidingActive = true;
-    animating = true;
-
     if (!terrain.length) return;
+
+    // Start animation if not already running
+    if (!animating) {
+        animating = true;
+    }
 
     const seedIdx = Math.floor(terrain.length * (0.35 + 0.35 * rng.next()));
     const seedX = terrain[seedIdx].x;
